@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Weather App</title>
+    <link rel="stylesheet" href="static/style.css">
+</head>
+<body style="background-color: {{ bg_color }};">
+    <div class="container">
+        <h1>Weather App</h1>
+        <form method="POST" action="/">
+            <input type="text" name="city" placeholder="Enter City Name" required>
+            <button type="submit">Get Weather</button>
+        </form>
+        {% if error_message %}
+            <h2 class="error">Error: {{ error_message }}</h2>
+        {% endif %}
+        {% if weather_data %}
+            <div class="weather">
+                <h2>Weather Forecast in {{ country }}</h2>
+                <table>
+                    <tr>
+                        <th>Date</th>
+                        <th>Day</th>
+                        <th>Night</th>
+                        <th>Humidity</th>
+                    </tr>
+                    {% for forecast in weather_data %}
+                        <tr>
+                            <td>{{ forecast.date }}</td>
+                            <td>{{ forecast.max_temp }}°C</td>
+                            <td>{{ forecast.min_temp }}°C</td>
+                            <td>{{ forecast.humidity }}%</td>
+                        </tr>
+                    {% endfor %}
+                </table>
+            </div>
+        {% endif %}
+        <div>
+            <h2>Change Background Color</h2>
+            <form method="POST" action="/">
+                <input type="color" name="bg_color" value="{{ bg_color }}">
+                <button type="submit">Change Color</button>
+            </form>
+        </div>
+        <div>
+            <h2>Search History</h2>
+            <a href="/history" class="history-button">View Search History</a>
+        </div>
+    </div>
+</body>
+</html>
