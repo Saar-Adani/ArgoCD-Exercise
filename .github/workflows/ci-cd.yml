@@ -3,7 +3,8 @@ name: Build and Push Docker Image
 # Grant write permissions to repository contents
 permissions:
   contents: write
-  
+
+
 # Trigger the workflow on push to main or on tag creation
 on:
   push:
@@ -47,6 +48,14 @@ jobs:
             echo "VERSION=latest" >> $GITHUB_ENV
           fi
 
+      # 4.1. If triggered by a tag, checkout the main branch
+      - name: Checkout main branch
+        if: env.IS_TAG == 'true'
+        run: |
+          git fetch origin main
+          git checkout main
+          git pull origin main
+
       # 5. Build and Push Docker Image
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v4
@@ -64,7 +73,7 @@ jobs:
           sudo chmod +x /usr/local/bin/yq
 
           # Update the image tag in deployment.yaml
-          yq eval '.spec.template.spec.containers[].image = ${{ secrets.DOCKERHUB_USERNAME }}/weather-app:'"${VERSION}"'"' -i deployment.yaml
+          yq eval '.spec.template.spec.containers[].image = "${{ secrets.DOCKERHUB_USERNAME }}/weather-app:'"${VERSION}"'"' -i deployment.yaml
 
       # 7. Commit and Push the Updated deployment.yaml back to main
       - name: Commit and Push Changes
