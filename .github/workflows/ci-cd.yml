@@ -68,33 +68,40 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
-      # 1. Checkout the repository with write permissions
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-        with:
-          # Ensure that GITHUB_TOKEN is available for pushing
-          persist-credentials: true
-          # Fetch all history for all tags and branches
-          fetch-depth: 0
+    # 1. Checkout the repository with write permissions
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+      with:
+        # Ensure that GITHUB_TOKEN is available for pushing
+        persist-credentials: true
+        # Fetch all history for all tags and branches
+        fetch-depth: 0
 
-      # 2. Configure Git with user details
-      - name: Set up Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+    # 2. Configure Git with user details
+    - name: Set up Git
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      # 3. Update Deployment Manifest with the new image tag
-      - name: Update Deployment Manifest
-        run: |
-          sed -i "s|image: .*|image: ${{ secrets.DOCKERHUB_USERNAME }}/weather-app:${{ needs.build-and-push.outputs.version }}|g" deployment.yaml
+    # 3. Switch to the main branch
+    - name: Switch to Main Branch
+      run: |
+        git checkout main || git checkout -b main
 
-      # 4. Commit the changes if there are any
-      - name: Commit Changes
-        run: |
-          git add deployment.yaml
-          git commit -m "Update Weather app to version ${{ needs.build-and-push.outputs.version }}" || echo "No changes to commit"
+    # 4. Update Deployment Manifest with the new image tag
+    - name: Update Deployment Manifest
+      run: |
+        sed -i "s|image: .*|image: ${{ secrets.DOCKERHUB_USERNAME }}/weather-app:${{ needs.build-and-push.outputs.version }}|g" deployment.yaml
 
-      # 5. Push the committed changes back to the main branch
-      - name: Push Changes
-        run: |
-          git push origin main
+    # 5. Commit the changes if there are any
+    - name: Commit Changes
+      run: |
+        git add deployment.yaml
+        git commit -m "Update Weather app to version ${{ needs.build-and-push.outputs.version }}" || echo "No changes to commit"
+
+    # 6. Push the committed changes back to the main branch
+    - name: Push Changes
+      uses: ad-m/github-push-action@main
+      with:
+        branch: main
+        force: true
