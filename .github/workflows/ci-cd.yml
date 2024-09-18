@@ -101,7 +101,7 @@ jobs:
 
     # 6. Push the committed changes back to the main branch
     - name: Push Changes
-      uses: ad-m/github-push-action@main
+      uses: ad-m/github-push-action@master
       with:
         branch: main
         force: true
