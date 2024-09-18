@@ -84,12 +84,12 @@ jobs:
       # 3. Update Deployment Manifest with the new image tag
       - name: Update Deployment Manifest
         run: |
-          sed -i "s|image: .*|image: ${{ secrets.DOCKERHUB_USERNAME }}/weather-app:${{ needs.build-and-push.outputs.version }}|g" base/deployment.yaml
+          sed -i "s|image: .*|image: ${{ secrets.DOCKERHUB_USERNAME }}/weather-app:${{ needs.build-and-push.outputs.version }}|g" deployment.yaml
 
       # 4. Commit the changes if there are any
       - name: Commit Changes
         run: |
-          git add base/deployment.yaml
+          git add deployment.yaml
           git commit -m "Update Weather app to version ${{ needs.build-and-push.outputs.version }}" || echo "No changes to commit"
 
       # 5. Push the committed changes back to the main branch
