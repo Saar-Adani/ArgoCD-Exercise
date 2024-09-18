@@ -59,7 +59,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
-          persist-credentials: true # Prevents using the token for pushes
+          fetch-depth: 0
 
       - name: Set up Git
         run: |
@@ -71,13 +71,8 @@ jobs:
           # Replace the image tag in deployment.yaml with the new version
           sed -i "s|image: .*|image: ${{ secrets.DOCKERHUB_USERNAME }}/weather-app:${{ env.VERSION }}|g" deployment.yaml
 
-      - name: Commit Changes
+      - name: Commit and Push Changes
         run: |
           git add deployment.yaml
           git commit -m "Update Weather app to version ${{ env.VERSION }}" || echo "No changes to commit"
-
-      - name: Push Changes
-        uses: ad-m/github-push-action@v0.6.0
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          branch: main
+          git push origin HEAD:main
