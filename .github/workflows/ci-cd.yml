@@ -1,15 +1,12 @@
 name: CI/CD Pipeline
 
-# Grant write permissions to repository contents
-permissions:
-  contents: write
-
 on:
   push:
     branches:
       - main
   release:
     types: [published]
+v1.0.3
 
 jobs:
   build-and-push:
@@ -42,6 +39,7 @@ jobs:
             VERSION=latest
           fi
           echo "VERSION=$VERSION" >> $GITHUB_ENV
+          export VERSION
 
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v4
@@ -51,6 +49,8 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/weather-app:${{ env.VERSION }}
             ${{ secrets.DOCKERHUB_USERNAME }}/weather-app:latest
+        outputs:
+          built_version: ${{ steps.build-and-push.outputs.TAG }}
 
   update-manifest:
     needs: build-and-push
@@ -59,7 +59,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          persist-credentials: true # Prevents using the token for pushes
 
       - name: Set up Git
         run: |
@@ -67,12 +67,10 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Update Deployment Manifest
-        run: |
-          # Replace the image tag in deployment.yaml with the new version
-          sed -i "s|image: .*|image: ${{ secrets.DOCKERHUB_USERNAME }}/weather-app:${{ env.VERSION }}|g" deployment.yaml
-
-      - name: Commit and Push Changes
-        run: |
-          git add deployment.yaml
-          git commit -m "Update Weather app to version ${{ env.VERSION }}" || echo "No changes to commit"
-          git push origin HEAD:main
+        uses: update-k8s-image@v2
+        with:
+          manifest-path: deployment.yaml
+          image-name: ${{ secrets.DOCKERHUB_USERNAME }}/weather-app
+          image-tag: ${{ needs.build-and_push.outputs.built_version }}
+          namespace: default
+          context: .
