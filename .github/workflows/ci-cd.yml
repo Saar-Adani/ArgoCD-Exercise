@@ -90,6 +90,6 @@ jobs:
       # 5. Push the committed changes back to the main branch
       - name: Push Changes
         run: |
-          git push https://github.com/Saar-Adani/ArgoCD-Exercise.git main
+          git push origin HEAD:main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
