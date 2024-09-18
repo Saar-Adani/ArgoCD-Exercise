@@ -1,5 +1,6 @@
 name: CI/CD Pipeline
 
+# Grant write permissions to repository contents
 permissions:
   contents: write
 
@@ -14,26 +15,32 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     steps:
+      # 1. Checkout the repository
       - name: Checkout Code
         uses: actions/checkout@v3
 
+      # 2. Set up QEMU for multi-platform builds (optional, remove if not needed)
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
 
+      # 3. Set up Docker Buildx
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # 4. Log in to Docker Hub
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # 5. Extract version from Git tag (if release event)
       - name: Extract version from Git tag
         id: get_version
         run: echo "VERSION=$(echo ${GITHUB_REF#refs/tags/})" >> $GITHUB_ENV
         if: startsWith(github.ref, 'refs/tags/')
 
+      # 6. Set version for push (default to 'latest' if not a tag)
       - name: Set version for push
         id: set_version
         run: |
@@ -42,6 +49,7 @@ jobs:
           fi
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
+      # 7. Build and Push Docker Image
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v4
         with:
@@ -55,28 +63,33 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
+      # 1. Checkout the repository with write permissions
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
-          persist-credentials: false # Prevents using the token for pushes
+          # Ensure that GITHUB_TOKEN is available for pushing
+          persist-credentials: true
 
+      # 2. Configure Git with user details
       - name: Set up Git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      # 3. Update Deployment Manifest with the new image tag
       - name: Update Deployment Manifest
         run: |
-          # Replace the image tag in deployment.yaml with the new version
           sed -i "s|image: .*|image: ${{ secrets.DOCKERHUB_USERNAME }}/weather-app:${{ env.VERSION }}|g" deployment.yaml
 
+      # 4. Commit the changes if there are any
       - name: Commit Changes
         run: |
           git add deployment.yaml
-          git commit -m "Update Python app to version ${{ env.VERSION }}" || echo "No changes to commit"
+          git commit -m "Update Weather app to version ${{ env.VERSION }}" || echo "No changes to commit"
 
+      # 5. Push the committed changes back to the main branch
       - name: Push Changes
-        uses: ad-m/github-push-action@v0.6.0
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          branch: main
+        run: |
+          git push origin main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
