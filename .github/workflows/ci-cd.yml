@@ -68,43 +68,39 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
-    # 1. Checkout the repository
     - name: Checkout Repository
       uses: actions/checkout@v3
       with:
         fetch-depth: 0
 
-    # 2. Configure Git with user details
     - name: Set up Git
       run: |
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
 
-    # 3. Get default branch name
     - name: Get default branch name
       id: get_default_branch
       run: |
         DEFAULT_BRANCH=$(git remote show origin | grep 'HEAD branch' | cut -d' ' -f5)
         echo "DEFAULT_BRANCH=$DEFAULT_BRANCH" >> $GITHUB_ENV
 
-    # 4. Switch to the default branch
-    - name: Switch to default branch
-      run: git checkout ${{ env.DEFAULT_BRANCH }}
+    - name: Fetch all branches
+      run: git fetch --all
 
-    # 5. Update Deployment Manifest with the new image tag
+    - name: Switch to default branch
+      run: |
+        git checkout ${{ env.DEFAULT_BRANCH }} || git checkout -b ${{ env.DEFAULT_BRANCH }}
+        git pull origin ${{ env.DEFAULT_BRANCH }} || true
+
     - name: Update Deployment Manifest
       run: |
         sed -i "s|image: .*|image: ${{ secrets.DOCKERHUB_USERNAME }}/weather-app:${{ needs.build-and-push.outputs.version }}|g" deployment.yaml
 
-    # 6. Commit the changes if there are any
     - name: Commit Changes
       run: |
         git add deployment.yaml
         git commit -m "Update Weather app to version ${{ needs.build-and-push.outputs.version }}" || echo "No changes to commit"
 
-    # 7. Push the committed changes back to the default branch
     - name: Push Changes
-      uses: ad-m/github-push-action@master
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        branch: ${{ env.DEFAULT_BRANCH }}
+      run: |
+        git push origin ${{ env.DEFAULT_BRANCH }} || git push --set-upstream origin ${{ env.DEFAULT_BRANCH }}
