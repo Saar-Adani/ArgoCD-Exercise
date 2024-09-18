@@ -90,8 +90,6 @@ jobs:
       # 5. Push the committed changes back to the main branch
       - name: Push Changes
         run: |
-          git push https://github.com/Saar-Adani/ArgoCD-Exercise.git
+          git push https://github.com/Saar-Adani/ArgoCD-Exercise.git main
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          
-          it seems that the pipeline runs succesfully but the dockerhub only gets a latest tag and in the deployment file the tag is deleted and stays like this "image: saaradanidevops/weather-app:"
