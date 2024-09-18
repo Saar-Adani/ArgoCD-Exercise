@@ -89,7 +89,7 @@ jobs:
 
       # 5. Push the committed changes back to the main branch
       - name: Push changes
-        uses: ad-m/github-push-action@main
+        uses: ad-m/github-push-action@master
         with:
           branch: main
         env:
