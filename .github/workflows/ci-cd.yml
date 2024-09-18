@@ -1,98 +1,77 @@
-name: CI/CD Pipeline
+name: Build and Push Docker Image
 
 # Grant write permissions to repository contents
 permissions:
   contents: write
-
+  
+# Trigger the workflow on push to main or on tag creation
 on:
   push:
     branches:
       - main
     tags:
-      - 'v*'  # Triggers on tags starting with 'v'
-  release:
-    types: [published]
+      - 'v*'  # Adjust the pattern as needed (e.g., 'release-*')
 
 jobs:
-  build-and-push:
+  build-and-deploy:
     runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.set_version.outputs.version }}
+
     steps:
       # 1. Checkout the repository
-      - name: Checkout Code
+      - name: Checkout Repository
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Ensures all history is fetched for tag information
 
-      # 2. Set up QEMU for multi-platform builds (optional, remove if not needed)
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
-
-      # 3. Set up Docker Buildx
+      # 2. Set up Docker Buildx
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v2
 
-      # 4. Log in to Docker Hub
+      # 3. Log in to Docker Hub
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 5. Extract version from Git tag (if push is a tag)
-      - name: Extract version from Git tag
-        id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-        if: startsWith(github.ref, 'refs/tags/')
-
-      # 6. Set version for push (default to 'latest' if not a tag)
-      - name: Set version for push
-        id: set_version
+      # 4. Determine if the trigger is a tag (release) or a push to main
+      - name: Determine Trigger Type
+        id: determine_trigger
         run: |
-          if [ -z "${VERSION}" ]; then
-            VERSION=latest
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "IS_TAG=true" >> $GITHUB_ENV
+            VERSION=${GITHUB_REF#refs/tags/}
+            echo "VERSION=${VERSION}" >> $GITHUB_ENV
+          else
+            echo "IS_TAG=false" >> $GITHUB_ENV
+            echo "VERSION=latest" >> $GITHUB_ENV
           fi
-          echo "VERSION=${VERSION}" >> $GITHUB_ENV
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
 
-      # 7. Build and Push Docker Image
+      # 5. Build and Push Docker Image
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v4
         with:
           context: .
           push: true
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/weather-app:${{ steps.set_version.outputs.version }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/weather-app:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/weather-app:${{ env.VERSION }}
 
-  update-manifest:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    steps:
-      # 1. Checkout main branch
-      - name: Checkout main branch
-        uses: actions/checkout@v3
+      # 6. Update deployment.yaml if triggered by a tag (release)
+      - name: Update deployment.yaml with New Image Tag
+        if: env.IS_TAG == 'true'
+        run: |
+          # Install yq for YAML processing
+          sudo wget -O /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+          # Update the image tag in deployment.yaml
+          yq eval '.spec.template.spec.containers[].image = ${{ secrets.DOCKERHUB_USERNAME }}/weather-app:'"${VERSION}"'"' -i deployment.yaml
+
+      # 7. Commit and Push the Updated deployment.yaml back to main
+      - name: Commit and Push Changes
+        if: env.IS_TAG == 'true'
+        uses: stefanzweifel/git-auto-commit-action@v4
         with:
-          ref: main
-          fetch-depth: 0  # Fetch all history for all branches and tags
-
-      # 2. Configure Git with user details
-      - name: Set up Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      # 3. Update Deployment Manifest with the new image tag
-      - name: Update Deployment Manifest
-        run: |
-          sed -i "s|image: .*|image: ${{ secrets.DOCKERHUB_USERNAME }}/weather-app:${{ needs.build-and-push.outputs.version }}|g" deployment.yaml
-
-      # 4. Commit the changes if there are any
-      - name: Commit Changes
-        run: |
-          git add deployment.yaml
-          git commit -m "Update Weather app to version ${{ needs.build-and-push.outputs.version }}" || echo "No changes to commit"
-
-      # 5. Push the committed changes back to the main branch
-      - name: Push Changes
-        run: |
-          git push origin main
+          commit_message: "Update deployment.yaml to image version ${{ env.VERSION }}"
+          branch: main
+          file_pattern: deployment.yaml
+          github_token: ${{ secrets.GITHUB_TOKEN }}
