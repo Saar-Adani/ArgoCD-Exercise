@@ -65,9 +65,9 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/weather-app:latest
 
   update-manifest:
-  needs: build-and-push
-  runs-on: ubuntu-latest
-  steps:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
     - name: Checkout Repository
       uses: actions/checkout@v3
       with:
