@@ -68,13 +68,10 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
-    # 1. Checkout the repository with write permissions
+    # 1. Checkout the repository
     - name: Checkout Repository
       uses: actions/checkout@v3
       with:
-        # Ensure that GITHUB_TOKEN is available for pushing
-        persist-credentials: true
-        # Fetch all history for all tags and branches
         fetch-depth: 0
 
     # 2. Configure Git with user details
@@ -83,25 +80,31 @@ jobs:
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
 
-    # 3. Switch to the main branch
-    - name: Switch to Main Branch
+    # 3. Get default branch name
+    - name: Get default branch name
+      id: get_default_branch
       run: |
-        git checkout main || git checkout -b main
+        DEFAULT_BRANCH=$(git remote show origin | grep 'HEAD branch' | cut -d' ' -f5)
+        echo "DEFAULT_BRANCH=$DEFAULT_BRANCH" >> $GITHUB_ENV
 
-    # 4. Update Deployment Manifest with the new image tag
+    # 4. Switch to the default branch
+    - name: Switch to default branch
+      run: git checkout ${{ env.DEFAULT_BRANCH }}
+
+    # 5. Update Deployment Manifest with the new image tag
     - name: Update Deployment Manifest
       run: |
         sed -i "s|image: .*|image: ${{ secrets.DOCKERHUB_USERNAME }}/weather-app:${{ needs.build-and-push.outputs.version }}|g" deployment.yaml
 
-    # 5. Commit the changes if there are any
+    # 6. Commit the changes if there are any
     - name: Commit Changes
       run: |
         git add deployment.yaml
         git commit -m "Update Weather app to version ${{ needs.build-and-push.outputs.version }}" || echo "No changes to commit"
 
-    # 6. Push the committed changes back to the main branch
+    # 7. Push the committed changes back to the default branch
     - name: Push Changes
       uses: ad-m/github-push-action@master
       with:
-        branch: main
-        force: true
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        branch: ${{ env.DEFAULT_BRANCH }}
