@@ -59,7 +59,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
-          persist-credentials: false # Prevents using the token for pushes
+          persist-credentials: true # Prevents using the token for pushes
 
       - name: Set up Git
         run: |
