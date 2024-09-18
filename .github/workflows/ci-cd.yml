@@ -8,6 +8,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'  # Triggers on tags starting with 'v'
   release:
     types: [published]
 
@@ -36,7 +38,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 5. Extract version from Git tag (if release event)
+      # 5. Extract version from Git tag (if push is a tag)
       - name: Extract version from Git tag
         id: get_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
